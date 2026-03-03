@@ -6,7 +6,7 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 
-# Python (레거시 스크립트용)
+# Python
 __pycache__/
 *.py[cod]
 .venv/
@@ -19,7 +19,6 @@ venv/
 .env.*.local
 
 # Testing & Coverage
-.pytest_cache/
 .coverage
 htmlcov/
 
@@ -40,16 +39,21 @@ databases/
 assets/
 !assets/lore/
 
+# Legacy specs (로컬 보관, git 미추적)
+specs/archive/
+specs/reference/
+specs/reference_v2/
+specs/overview.md
+specs/ava_framework.md
+
 # Internal docs (not for public repo)
 PROGRESS.md
 BUGS.md
-CLAUDE.md
 .claude/
 docs/internal/
 
 # Experimental/debug scripts
-scripts/test_*.py
-scripts/debug_*.py
+scripts/
 
 # OS
 .DS_Store
