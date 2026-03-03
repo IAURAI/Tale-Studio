@@ -82,7 +82,7 @@ export default function VisualPage() {
           </div>
         </div>
       </div>
-      <HandoffButton label="Approve & Direct" targetStage="set" />
+      <HandoffButton label="Approve & Direct" targetStage="director" />
     </>
   )
 }

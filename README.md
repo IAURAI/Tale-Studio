@@ -54,11 +54,59 @@ tale/
 4. `specs/layers/L1~L3` — 레이어별 입출력 계약
 5. `specs/decisions.md` — 왜 이렇게 결정했는지
 
-## 환경 설정
+## Quick Start (새 머신 셋업)
+
+### 사전 요구
+
+- **Node.js** ≥ 20 (`node -v`)
+- **pnpm** ≥ 9 (`npm i -g pnpm` 또는 `corepack enable`)
+- **Git**
+- **Claude Code** (`npm i -g @anthropic-ai/claude-code`)
+
+### 1. 클론 & 설치
+
+```bash
+git clone https://github.com/<org>/tale.git
+cd tale
+pnpm install
+```
+
+### 2. 환경변수
 
 ```bash
 cp .env.example .env
-# .env 파일에 API 키 설정
-pnpm install
-pnpm dev
 ```
+
+`.env` 파일을 열고 아래 키를 채워 넣기:
+
+| 키 | 용도 | 필수 |
+|----|------|------|
+| `OPENAI_API_KEY` | GPT-4o, DALL-E 3 | MVP 시 |
+| `GOOGLE_API_KEYS` | Veo (영상 생성) | MVP 시 |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Knowledge DB | MVP 시 |
+
+> 로컬 개발(Mock 모드)에서는 API 키 없이도 UI 확인 가능
+
+### 3. 실행
+
+```bash
+pnpm dev          # http://localhost:3000
+pnpm build        # 프로덕션 빌드
+pnpm lint         # ESLint
+```
+
+### 4. Claude Code로 개발 시작
+
+```bash
+cd tale
+claude
+
+# 추천 첫 프롬프트:
+# "CLAUDE.md 읽고 현재 프로젝트 상태 파악해줘"
+# "specs/mvp_scope.md 기준으로 다음 구현할 것 알려줘"
+```
+
+**병렬 개발 규칙** — `CLAUDE.md`의 "병렬 개발 규칙" 섹션 참고:
+- Dev A: `feature/producer-writer-artist` 브랜치 (P1, P2, P3)
+- Dev B: `feature/director-editor` 브랜치 (P4, P5)
+- 공유 영역(`types/`, `components/layout/`, `stores/project-store.ts`) 변경 → main PR

@@ -1,4 +1,4 @@
-export type StageId = 'meeting' | 'script' | 'visual' | 'set' | 'post'
+export type StageId = 'producer' | 'writer' | 'artist' | 'director' | 'editor'
 
 export interface StageConfig {
   id: StageId

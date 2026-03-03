@@ -16,7 +16,7 @@ function getStageIndex(id: StageId): number {
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
-  currentStage: 'visual',
+  currentStage: 'artist',
   videoGenerationStarted: false,
 
   setStage: (stage) => set({ currentStage: stage }),

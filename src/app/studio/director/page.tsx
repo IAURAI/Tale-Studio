@@ -161,7 +161,7 @@ export default function SetPage() {
           )}
         </div>
       </div>
-      <HandoffButton label="Head to Editor" targetStage="post" />
+      <HandoffButton label="Head to Editor" targetStage="editor" />
     </>
   )
 }

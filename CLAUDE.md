@@ -91,11 +91,11 @@ Agent 이름 기준: producer(P1) / writer(P2) / artist(P3) / director(P4) / edi
 
 ### URL 라우트 → 디렉토리 매핑
 ```
-/studio/meeting  → features/producer/
-/studio/script   → features/writer/
-/studio/visual   → features/artist/
-/studio/set      → features/director/
-/studio/post     → features/editor/
+/studio/producer → features/producer/
+/studio/writer   → features/writer/
+/studio/artist   → features/artist/
+/studio/director → features/director/
+/studio/editor   → features/editor/
 ```
 
 ## 보일러플레이트 인벤토리

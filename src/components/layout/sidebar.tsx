@@ -15,11 +15,11 @@ import { STAGES } from '@/lib/constants'
 import type { StageId } from '@/types'
 
 const STAGE_ICONS: Record<StageId, React.ElementType> = {
-  meeting: Users,
-  script: PenTool,
-  visual: Palette,
-  set: Clapperboard,
-  post: Film,
+  producer: Users,
+  writer: PenTool,
+  artist: Palette,
+  director: Clapperboard,
+  editor: Film,
 }
 
 export function Sidebar() {
