@@ -6,11 +6,15 @@ interface ArtistState {
   characterAssets: CharacterAsset[]
   worldAssets: WorldAsset[]
   selectedCharacterId: string | null
+  generatingCharacterId: string | null
+  selectedBoostPreset: string | null
 
   loadMockData: () => void
   selectCharacter: (id: string) => void
   lockCharacter: (id: string) => void
   unlockCharacter: (id: string) => void
+  generateSheet: (id: string) => void
+  selectBoostPreset: (preset: string) => void
 }
 
 export const useArtistStore = create<ArtistState>((set) => ({
@@ -18,6 +22,8 @@ export const useArtistStore = create<ArtistState>((set) => ({
   characterAssets: [],
   worldAssets: [],
   selectedCharacterId: null,
+  generatingCharacterId: null,
+  selectedBoostPreset: null,
 
   loadMockData: async () => {
     const [
@@ -52,5 +58,15 @@ export const useArtistStore = create<ArtistState>((set) => ({
       characterAssets: state.characterAssets.map((a) =>
         a.characterId === id ? { ...a, locked: false } : a,
       ),
+    })),
+
+  generateSheet: (id) => {
+    set({ generatingCharacterId: id })
+    setTimeout(() => set({ generatingCharacterId: null }), 2000)
+  },
+
+  selectBoostPreset: (preset) =>
+    set((state) => ({
+      selectedBoostPreset: state.selectedBoostPreset === preset ? null : preset,
     })),
 }))
