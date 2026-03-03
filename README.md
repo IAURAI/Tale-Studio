@@ -26,7 +26,7 @@ tale/
 │       └── L3_prompt_builder.md
 │
 ├── src/                        # Next.js 앱
-│   ├── app/studio/             # 5-Stage 라우트 (meeting/script/visual/set/post)
+│   ├── app/studio/             # 5-Stage: Producer / Writer / Artist / Director / Editor
 │   ├── components/             # UI 컴포넌트 (layout + shadcn/ui)
 │   ├── stores/                 # Zustand (project, artist, director)
 │   ├── mocks/                  # Mock 데이터 (4씬, 24샷, 3캐릭터)
