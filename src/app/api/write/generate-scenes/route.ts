@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
 import type { SceneManifest } from '@/types'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getUser } from '@/lib/supabase/auth'
 
 function getApiKey(): string {
   const keys = process.env.GOOGLE_API_KEYS ?? ''
@@ -83,6 +84,11 @@ Rules:
 
 export async function POST(req: Request) {
   try {
+    const user = await getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { storyText, projectId } = await req.json()
 
     if (!storyText || typeof storyText !== 'string') {

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
+import { getUser } from '@/lib/supabase/auth'
 
 function getApiKey(): string {
   const keys = process.env.GOOGLE_API_KEYS ?? ''
@@ -10,6 +11,11 @@ function getApiKey(): string {
 
 export async function POST(req: Request) {
   try {
+    const user = await getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { prompt, aspectRatio = '1:1' } = await req.json()
 
     if (!prompt || typeof prompt !== 'string') {

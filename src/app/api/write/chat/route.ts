@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
+import { getUser } from '@/lib/supabase/auth'
 
 function getApiKey(): string {
   const keys = process.env.GOOGLE_API_KEYS ?? ''
@@ -31,6 +32,11 @@ interface ChatMessage {
 
 export async function POST(req: Request) {
   try {
+    const user = await getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { message, history, sceneContext } = await req.json()
 
     if (!message || typeof message !== 'string') {

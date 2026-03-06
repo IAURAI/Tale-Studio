@@ -1,8 +1,14 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { getUser } from '@/lib/supabase/auth'
 
 export async function POST(req: Request) {
   try {
+    const user = await getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const form = await req.formData()
     const projectId = form.get('projectId') as string
     const type = form.get('type') as string
