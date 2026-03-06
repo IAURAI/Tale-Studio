@@ -1,43 +1,11 @@
-import jwt from 'jsonwebtoken'
+import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
 
-const KLING_API = 'https://api.klingai.com/v1/images/generations'
-const POLL_INTERVAL_MS = 3000
-const MAX_POLLS = 40 // ~2 minutes max
-
-function generateKlingToken(): string {
-  const ak = process.env.KLING_ACCESS_KEY
-  const sk = process.env.KLING_SECRET_KEY
-  if (!ak || !sk) throw new Error('KLING_ACCESS_KEY or KLING_SECRET_KEY is not configured')
-
-  const now = Math.floor(Date.now() / 1000)
-  const payload = {
-    iss: ak,
-    exp: now + 1800,
-    nbf: now - 5,
-  }
-  return jwt.sign(payload, sk, { algorithm: 'HS256', header: { alg: 'HS256', typ: 'JWT' } })
-}
-
-async function klingRequest(url: string, options?: RequestInit) {
-  const token = generateKlingToken()
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...options?.headers,
-    },
-  })
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Kling API ${res.status}: ${body}`)
-  }
-  return res.json()
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+function getApiKey(): string {
+  const keys = process.env.GOOGLE_API_KEYS ?? ''
+  const first = keys.split(',')[0]?.split(':')[0]?.trim()
+  if (!first) throw new Error('GOOGLE_API_KEYS is not configured')
+  return first
 }
 
 export async function POST(req: Request) {
@@ -51,56 +19,29 @@ export async function POST(req: Request) {
       )
     }
 
-    // Create image generation task
-    const createRes = await klingRequest(KLING_API, {
-      method: 'POST',
-      body: JSON.stringify({
-        model_name: 'kling-v2',
-        prompt,
-        aspect_ratio: aspectRatio,
-        n: 1,
-      }),
+    const ai = new GoogleGenAI({ apiKey: getApiKey() })
+
+    const response = await ai.models.generateImages({
+      model: 'imagen-4.0-generate-001',
+      prompt,
+      config: {
+        numberOfImages: 1,
+        aspectRatio: aspectRatio as '1:1' | '16:9',
+      },
     })
 
-    const taskId = createRes.data?.task_id
-    if (!taskId) {
+    const img = response.generatedImages?.[0]?.image
+    if (!img?.imageBytes) {
       return NextResponse.json(
-        { error: 'Failed to create Kling task', detail: createRes },
+        { error: 'No image generated' },
         { status: 500 },
       )
     }
 
-    // Poll for result
-    for (let i = 0; i < MAX_POLLS; i++) {
-      await sleep(POLL_INTERVAL_MS)
+    const base64 = Buffer.from(img.imageBytes).toString('base64')
+    const dataUrl = `data:${img.mimeType ?? 'image/png'};base64,${base64}`
 
-      const pollRes = await klingRequest(`${KLING_API}/${taskId}`)
-      const status = pollRes.data?.task_status
-
-      if (status === 'succeed') {
-        const imageUrl = pollRes.data?.task_result?.images?.[0]?.url
-        if (!imageUrl) {
-          return NextResponse.json(
-            { error: 'No image in Kling result' },
-            { status: 500 },
-          )
-        }
-        return NextResponse.json({ url: imageUrl })
-      }
-
-      if (status === 'failed') {
-        return NextResponse.json(
-          { error: `Kling generation failed: ${pollRes.data?.task_status_msg ?? 'unknown'}` },
-          { status: 500 },
-        )
-      }
-      // status is 'submitted' or 'processing' — keep polling
-    }
-
-    return NextResponse.json(
-      { error: 'Kling generation timed out' },
-      { status: 504 },
-    )
+    return NextResponse.json({ url: dataUrl })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('[generate/image]', message)
