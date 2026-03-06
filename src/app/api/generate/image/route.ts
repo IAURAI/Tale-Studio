@@ -38,10 +38,16 @@ export async function POST(req: Request) {
       )
     }
 
-    const base64 = Buffer.from(img.imageBytes).toString('base64')
-    const dataUrl = `data:${img.mimeType ?? 'image/png'};base64,${base64}`
+    // imageBytes is a base64 string per SDK docs — decode to binary
+    const buffer = Buffer.from(img.imageBytes, 'base64')
+    const mimeType = img.mimeType ?? 'image/png'
 
-    return NextResponse.json({ url: dataUrl })
+    return new Response(buffer, {
+      headers: {
+        'Content-Type': mimeType,
+        'Content-Length': String(buffer.length),
+      },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('[generate/image]', message)

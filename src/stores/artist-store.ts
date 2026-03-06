@@ -18,8 +18,8 @@ async function generateImage(
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `HTTP ${res.status}`)
   }
-  const { url } = await res.json()
-  return url as string
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
 }
 
 function persistImage(
@@ -27,13 +27,20 @@ function persistImage(
   type: 'character' | 'location',
   entityId: string,
   field: string,
-  dataUrl: string,
+  blobUrl: string,
 ) {
-  fetch('/api/assets/upload-image', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId, type, entityId, field, dataUrl }),
-  }).catch((err) => console.error('[artist-store] persistImage failed:', err))
+  fetch(blobUrl)
+    .then((r) => r.blob())
+    .then((blob) => {
+      const form = new FormData()
+      form.append('projectId', projectId)
+      form.append('type', type)
+      form.append('entityId', entityId)
+      form.append('field', field)
+      form.append('file', blob, `${entityId}_${field}.png`)
+      return fetch('/api/assets/upload-image', { method: 'POST', body: form })
+    })
+    .catch((err) => console.error('[artist-store] persistImage failed:', err))
 }
 
 interface ArtistState {

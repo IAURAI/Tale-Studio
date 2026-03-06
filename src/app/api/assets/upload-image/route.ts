@@ -3,20 +3,23 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { projectId, type, entityId, field, dataUrl } = await req.json()
+    const form = await req.formData()
+    const projectId = form.get('projectId') as string
+    const type = form.get('type') as string
+    const entityId = form.get('entityId') as string
+    const field = form.get('field') as string
+    const file = form.get('file') as File | null
 
-    if (!projectId || !type || !entityId || !field || !dataUrl) {
+    if (!projectId || !type || !entityId || !field || !file) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 },
       )
     }
 
-    // 1. Decode base64 data URL
-    const [header, base64] = dataUrl.split(',')
-    const mimeType = header?.match(/data:(.*?);/)?.[1] ?? 'image/png'
+    const mimeType = file.type || 'image/png'
     const extension = mimeType.split('/')[1] ?? 'png'
-    const buffer = Buffer.from(base64, 'base64')
+    const buffer = Buffer.from(await file.arrayBuffer())
 
     // 2. Get workspace_id from project
     const { data: project } = await supabaseAdmin
