@@ -93,3 +93,28 @@
 ### P1-3: 연결
 - [x] `project-store.ts` — 기본 stage `'writer'` → `'producer'` (DB 기본값과 일치)
 - [x] 빌드 통과
+- [x] Vercel Production 배포 완료
+
+### 설계 메모
+- 채팅 기록은 세션 전용 (Zustand 메모리). DB 저장 안 함
+- DB에 저장되는 건 결과물만: `story_text` + `settings` (saveAndHandoff 시)
+
+### 남은 DoD (브라우저 검증 필요)
+- [ ] 채팅 → Gemini 응답 + Dashboard settings 반영
+- [ ] .txt 파일 업로드 → storyText 저장
+- [ ] Dashboard 위젯 Pending → Filled 전환
+- [ ] Handoff → DB 저장 + P2 이동 + story_text 수신
+- [ ] P2/P3 기존 동작 불변
+
+## Auth: Google OAuth (2026-03-06)
+
+> 브랜치: `feature/producer-writer-artist`
+
+- [x] Supabase Auth Google OAuth provider 설정
+- [x] DB 마이그레이션 — `workspaces.owner_id` 추가 + RLS 정책 owner 기반으로 변경
+- [x] `/login` 페이지 + `/auth/callback` OAuth 라우트
+- [x] `middleware.ts` — 세션 갱신 + 미인증 시 `/login` 리다이렉트
+- [x] `getUser()` auth 헬퍼 + API 라우트 6개 auth guard 적용
+- [x] Root layout에서 Sidebar 분리 → studio layout으로 이동
+- [x] `project/init` — user 기반 workspace 자동 생성
+- [ ] Vercel 배포 환경에서 OAuth 콜백 동작 확인
