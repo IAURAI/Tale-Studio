@@ -166,7 +166,14 @@ export const useWriterStore = create<WriterState>((set, get) => ({
           .eq('project_id', projectId),
       ])
 
-      if (!scenes?.length) return
+      // Always load story_text even if no scenes yet (P1 → P2 handoff)
+      if (!scenes?.length) {
+        set({
+          storyText: project?.story_text ?? '',
+          expandedStory: project?.expanded_story ?? null,
+        })
+        return
+      }
 
       const manifest: SceneManifest = {
         scenes: scenes.map((s) => ({
