@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { HandoffButton } from '@/components/layout/handoff-button'
+import { CinematographicInspector } from '@/features/director/cinematographic-inspector'
+import { DirectorChat } from '@/features/director/director-chat'
 import { useDirectorStore } from '@/stores/director-store'
 import { mockSceneManifest } from '@/mocks/scene-manifest'
 
@@ -21,6 +23,8 @@ export default function SetPage() {
     selectedShotId,
     selectScene,
     selectShot,
+    updateCamera,
+    updateLighting,
     loadMockData,
   } = useDirectorStore()
 
@@ -36,32 +40,46 @@ export default function SetPage() {
     <>
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Scene Navigator */}
-        <div className="flex w-48 flex-col border-r border-border p-4">
+        <div className="flex w-48 shrink-0 flex-col border-r border-border p-4">
           <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
             Scenes
           </h3>
           <div className="space-y-2">
-            {scenes.map((scene) => (
-              <button
-                key={scene.sceneId}
-                onClick={() => selectScene(scene.sceneId)}
-                className={`w-full rounded-lg border p-3 text-left text-sm transition-colors ${
-                  selectedSceneId === scene.sceneId
-                    ? 'border-primary bg-accent'
-                    : 'border-border hover:bg-accent/50'
-                }`}
-              >
-                <div className="mb-1 flex items-center gap-2">
-                  <div
-                    className={`h-2 w-2 rounded-full ${ACT_COLORS[scene.act] ?? 'bg-muted'}`}
-                  />
-                  <span className="font-medium">{scene.act.toUpperCase()}</span>
-                </div>
-                <p className="truncate text-xs text-muted-foreground">
-                  {scene.narrativeSummary}
-                </p>
-              </button>
-            ))}
+            {scenes.map((scene) => {
+              const shotCount = shots.filter(
+                (s) => s.sceneId === scene.sceneId,
+              ).length
+              return (
+                <button
+                  key={scene.sceneId}
+                  onClick={() => selectScene(scene.sceneId)}
+                  className={`w-full rounded-lg border p-3 text-left text-sm transition-colors ${
+                    selectedSceneId === scene.sceneId
+                      ? 'border-primary bg-accent'
+                      : 'border-border hover:bg-accent/50'
+                  }`}
+                >
+                  <div className="mb-1 flex items-center gap-2">
+                    <div
+                      className={`h-2 w-2 rounded-full ${ACT_COLORS[scene.act] ?? 'bg-muted'}`}
+                    />
+                    <span className="font-medium">{scene.act.toUpperCase()}</span>
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {scene.narrativeSummary}
+                  </p>
+                  {/* Shot progress dots */}
+                  <div className="mt-2 flex gap-1">
+                    {Array.from({ length: shotCount }, (_, i) => (
+                      <div
+                        key={i}
+                        className="h-1.5 w-1.5 rounded-full bg-primary/40"
+                      />
+                    ))}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -69,9 +87,14 @@ export default function SetPage() {
 
         {/* Center: Shot Grid */}
         <div className="flex flex-1 flex-col p-4">
-          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
-            Shots
-          </h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              Shots
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              {sceneShots.length} shots
+            </span>
+          </div>
           <div className="grid grid-cols-3 gap-3 overflow-y-auto">
             {sceneShots.map((shot) => (
               <button
@@ -102,65 +125,23 @@ export default function SetPage() {
 
         <Separator orientation="vertical" />
 
-        {/* Right: Inspector */}
-        <div className="flex w-72 flex-col p-4">
-          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
-            Inspector
-          </h3>
-          {selectedShot ? (
-            <div className="space-y-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Type</span>
-                <p className="font-medium">{selectedShot.shotType}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Action</span>
-                <p>{selectedShot.actionDescription}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Camera (6-axis)</span>
-                <div className="mt-1 grid grid-cols-2 gap-1 text-xs">
-                  {Object.entries(selectedShot.camera).map(([axis, val]) => (
-                    <div key={axis} className="flex justify-between rounded bg-muted px-2 py-1">
-                      <span className="text-muted-foreground">{axis}</span>
-                      <span>{val}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Lighting</span>
-                <div className="mt-1 space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span>Position</span>
-                    <span>{selectedShot.lighting.position}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Brightness</span>
-                    <span>{selectedShot.lighting.brightness}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Color Temp</span>
-                    <span>{selectedShot.lighting.colorTemp}K</span>
-                  </div>
-                </div>
-              </div>
-              {selectedShot.dialogueLines.length > 0 && (
-                <div>
-                  <span className="text-muted-foreground">Dialogue</span>
-                  {selectedShot.dialogueLines.map((line, i) => (
-                    <p key={i} className="mt-1 text-xs italic">
-                      &ldquo;{line.text}&rdquo;
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Select a shot</p>
-          )}
+        {/* Right: Cinematographic Inspector */}
+        <div className="w-72 shrink-0 border-l border-border">
+          <CinematographicInspector
+            shot={selectedShot}
+            onUpdateCamera={(config) =>
+              selectedShotId && updateCamera(selectedShotId, config)
+            }
+            onUpdateLighting={(config) =>
+              selectedShotId && updateLighting(selectedShotId, config)
+            }
+          />
         </div>
       </div>
+
+      {/* Bottom: Director Kim Chat */}
+      <DirectorChat />
+
       <HandoffButton label="Head to Editor" targetStage="editor" />
     </>
   )

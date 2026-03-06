@@ -106,6 +106,56 @@
 - [ ] Handoff → DB 저장 + P2 이동 + story_text 수신
 - [ ] P2/P3 기존 동작 불변
 
+## Phase 5: P4 The Set — Director Agent (2026-03-06)
+
+> 브랜치: `feature/producer-writer-artist`
+> 스펙: `specs/ux_pages.md` P4 섹션 + `specs/layers/L2_shot_composer.md` + `specs/layers/L3_prompt_builder.md`
+
+### P4-1: Cinematographic Inspector UI
+- [x] `features/director/angle-control.tsx` — 6축 슬라이더 + CSS 3D 큐브
+- [x] `features/director/key-light.tsx` — 조명 위치/밝기/색온도 컨트롤
+- [x] `features/director/cinematographic-inspector.tsx` — Inspector 컨테이너
+- [x] `director/page.tsx` — 3패널 레이아웃 (Scene Nav + Shot Grid + Inspector)
+- [x] 슬라이더 조작 → store 실시간 반영
+
+### P4-2: Director Kim Chat
+- [x] `features/director/director-chat.tsx` — 하단 접이식 채팅 패널
+- [x] `POST /api/director/chat` — Gemini Director Kim (촬영기법 추천)
+- [x] `director-store.ts` 확장 — chatMessages, sendChatMessage, applySuggested
+
+### P4-3: Knowledge DB + Generation API
+- [x] `src/lib/knowledge.ts` — YAML 로더 + 기법 쿼리 (mood + shotType → techniques)
+- [x] `POST /api/director/generate-shots` — L2+L3 체인 (scene → shots + Knowledge DB 기법 주입 + 프롬프트 생성)
+- [x] `POST /api/director/generate-video` — Stub (Kling/Veo 키 확보 시 연결)
+- [x] `director-store.ts` — generateVideo 액션
+- [x] 빌드 통과
+
+## Phase 6: P5 Lite Post-Production — Editor Agent (2026-03-06)
+
+> 브랜치: `feature/producer-writer-artist`
+> 스펙: `specs/ux_pages.md` P5 섹션
+
+### P5-1: Store + UI
+- [x] `editor-store.ts` — clips, clipOrder, reorder, trim, renderDraft
+- [x] `features/editor/video-previewer.tsx` — 비디오 플레이어 (URL or placeholder)
+- [x] `features/editor/scene-tabs.tsx` — SC_01~04 탭
+- [x] `features/editor/shot-timeline.tsx` — 썸네일 타임라인 + HTML5 드래그 리오더 + 삭제
+- [x] `features/editor/edit-toolbar.tsx` — 아이콘 플레이스홀더 (Post-MVP)
+- [x] `editor/page.tsx` — Viewer + Timeline 레이아웃
+
+### P5-2: API
+- [x] `PATCH /api/editor/reorder` — 타임라인 순서 변경
+- [x] `POST /api/editor/render-draft` — 순차재생 playlist JSON (MVP)
+- [x] `VideoClip` 타입에 `trimStart`, `trimEnd` 추가
+- [x] 빌드 통과
+
+### 남은 작업 (브라우저 검증 필요)
+- [ ] P4: mock 데이터 로드 → Inspector 슬라이더 조작 → 값 반영 확인
+- [ ] P4: Director Chat → Gemini 응답 수신 확인
+- [ ] P5: 씬 탭 전환 → 타임라인 표시 → 드래그 리오더 확인
+- [ ] P4/P5: Vercel 배포 후 동작 확인
+- [ ] 영상 생성 API 키 확보 후 generate-video 연결
+
 ## Auth: Google OAuth (2026-03-06)
 
 > 브랜치: `feature/producer-writer-artist`

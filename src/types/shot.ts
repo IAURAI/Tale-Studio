@@ -46,4 +46,6 @@ export interface VideoClip {
   url: string | null
   status: 'pending' | 'generating' | 'completed' | 'failed'
   thumbnailUrl: string | null
+  trimStart?: number  // seconds, client-only for P5 crop
+  trimEnd?: number    // seconds, client-only for P5 crop
 }
