@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
-import type { SceneManifest } from '@/types'
+import type { SceneManifest, Shot } from '@/types'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/supabase/auth'
 
@@ -82,6 +82,44 @@ Rules:
 - Extract ALL characters mentioned, even briefly
 - Output valid JSON only, no markdown fences`
 
+const SHOT_COMPOSER_SYSTEM = `You are a shot composer. Given a scene manifest and expanded story, generate 4-6 shots per scene.
+
+Focus on NARRATIVE data only — no camera or lighting settings (those are added later by the Director).
+
+Output a JSON array of shots matching this exact schema:
+[
+  {
+    "shotId": "sh_01_01",
+    "sceneId": "sc_01",
+    "shotType": "WS",
+    "actionDescription": "Describe what happens visually in this shot",
+    "characters": ["char_01"],
+    "durationSeconds": 5,
+    "generationMethod": "T2V",
+    "dialogueLines": [
+      {
+        "characterId": "char_01",
+        "text": "Exact dialogue text",
+        "emotion": "determined",
+        "delivery": "whispered",
+        "durationHint": 2
+      }
+    ]
+  }
+]
+
+Rules:
+- Shot IDs: sh_{sceneNumber}_{shotNumber} (e.g., sh_01_01, sh_01_02)
+- 4-6 shots per scene
+- shotType must be one of: ECU, CU, MCU, MS, MFS, FS, WS, EWS, OTS, POV, TRACK, 2S
+- generationMethod: "T2V" (text-to-video) or "I2V" (image-to-video)
+- Use "I2V" when a specific character face or background is crucial
+- dialogueLines: include ONLY lines from the original story. Empty array if no dialogue in that shot
+- durationSeconds: 3-8 seconds per shot
+- Vary shot types for visual interest (wide establishing → medium → close-up for emotion)
+- characters: list character IDs present in this shot
+- Output valid JSON array only, no markdown fences`
+
 export async function POST(req: Request) {
   try {
     const user = await getUser()
@@ -155,6 +193,45 @@ export async function POST(req: Request) {
       )
     }
 
+    // Step 3: L2 Lite Shot Composer — generate shots per scene
+    const shotInput = JSON.stringify({
+      expandedStory,
+      scenes: manifest.scenes,
+      characters: manifest.characters,
+    })
+
+    const shotResponse = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: shotInput,
+      config: {
+        systemInstruction: SHOT_COMPOSER_SYSTEM,
+        temperature: 0.4,
+        responseMimeType: 'application/json',
+      },
+    })
+
+    const shotJson = shotResponse.candidates?.[0]?.content?.parts?.[0]?.text
+    let shots: Shot[] = []
+
+    if (shotJson) {
+      const parsed = JSON.parse(shotJson)
+      const rawShots = Array.isArray(parsed) ? parsed : parsed.shots ?? []
+
+      // Normalize — add default camera/lighting
+      shots = rawShots.map((s: Record<string, unknown>) => ({
+        shotId: s.shotId as string,
+        sceneId: s.sceneId as string,
+        shotType: s.shotType as string,
+        actionDescription: (s.actionDescription as string) ?? '',
+        characters: (s.characters as string[]) ?? [],
+        durationSeconds: (s.durationSeconds as number) ?? 5,
+        generationMethod: (s.generationMethod as string) ?? 'T2V',
+        dialogueLines: (s.dialogueLines as Shot['dialogueLines']) ?? [],
+        camera: { horizontal: 0, vertical: 0, pan: 0, tilt: 0, roll: 0, zoom: 0 },
+        lighting: { position: 'front', brightness: 50, colorTemp: 5000 },
+      }))
+    }
+
     // Persist to Supabase if projectId provided
     if (projectId) {
       await supabaseAdmin
@@ -171,6 +248,7 @@ export async function POST(req: Request) {
         supabaseAdmin.from('scenes').delete().eq('project_id', projectId),
         supabaseAdmin.from('characters').delete().eq('project_id', projectId),
         supabaseAdmin.from('locations').delete().eq('project_id', projectId),
+        supabaseAdmin.from('shots').delete().eq('project_id', projectId),
       ])
 
       // Insert scenes
@@ -215,11 +293,32 @@ export async function POST(req: Request) {
           })),
         )
       }
+
+      // Insert shots
+      if (shots.length) {
+        await supabaseAdmin.from('shots').insert(
+          shots.map((s, i) => ({
+            project_id: projectId,
+            scene_id: s.sceneId,
+            shot_id: s.shotId,
+            shot_type: s.shotType,
+            action_description: s.actionDescription,
+            characters: s.characters,
+            duration_seconds: s.durationSeconds,
+            generation_method: s.generationMethod,
+            dialogue_lines: s.dialogueLines,
+            camera_config: s.camera,
+            lighting_config: s.lighting,
+            sort_order: i,
+          })),
+        )
+      }
     }
 
     return NextResponse.json({
       manifest,
       expandedStory,
+      shots,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

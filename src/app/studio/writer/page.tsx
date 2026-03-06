@@ -1,54 +1,31 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Loader2,
   Sparkles,
-  MapPin,
-  Clock,
-  Swords,
-  Send,
   Save,
-  MessageSquare,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { HandoffButton } from '@/components/layout/handoff-button'
 import { useWriterStore } from '@/stores/writer-store'
 import { useProjectStore } from '@/stores/project-store'
-import { cn } from '@/lib/utils'
-import type { Act } from '@/types'
-
-const ACT_LABELS: Record<Act, string> = {
-  intro: 'INTRODUCTION',
-  dev: 'DEVELOPMENT',
-  turn: 'TURN',
-  conclusion: 'CONCLUSION',
-}
-
-const ACT_COLORS: Record<Act, string> = {
-  intro: 'border-blue-500/50 bg-blue-500/5',
-  dev: 'border-amber-500/50 bg-amber-500/5',
-  turn: 'border-red-500/50 bg-red-500/5',
-  conclusion: 'border-emerald-500/50 bg-emerald-500/5',
-}
-
-const ACT_ACCENT: Record<Act, string> = {
-  intro: 'bg-blue-500',
-  dev: 'bg-amber-500',
-  turn: 'bg-red-500',
-  conclusion: 'bg-emerald-500',
-}
+import { SceneCards } from '@/features/writer/scene-cards'
+import { ShotGrid } from '@/features/writer/shot-grid'
+import { ShotEditor } from '@/features/writer/shot-editor'
+import { WriterChat } from '@/features/writer/writer-chat'
 
 export default function WriterPage() {
   const {
     storyText,
     sceneManifest,
     selectedSceneId,
+    shots,
+    selectedShotId,
     generating,
     chatMessages,
     chatLoading,
@@ -56,7 +33,11 @@ export default function WriterPage() {
     setStoryText,
     generateScenes,
     selectScene,
-    updateScene,
+    selectShot,
+    updateShot,
+    addDialogueLine,
+    removeDialogueLine,
+    updateDialogueLine,
     sendChatMessage,
     clearError,
   } = useWriterStore()
@@ -68,24 +49,12 @@ export default function WriterPage() {
     if (projectId) loadProject()
   }, [projectId, loadProject])
 
-  const [chatInput, setChatInput] = useState('')
   const [storyCollapsed, setStoryCollapsed] = useState(false)
-  const chatEndRef = useRef<HTMLDivElement>(null)
 
-  const selectedScene = sceneManifest?.scenes.find(
+  const sceneShotsFiltered = shots.filter(
     (s) => s.sceneId === selectedSceneId,
   )
-
-  const getLocationName = (locId: string) =>
-    sceneManifest?.locations.find((l) => l.locationId === locId)?.name ?? locId
-
-  const handleChat = async () => {
-    if (!chatInput.trim() || chatLoading) return
-    const msg = chatInput
-    setChatInput('')
-    await sendChatMessage(msg)
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const selectedShot = shots.find((s) => s.shotId === selectedShotId)
 
   // ── No scenes yet: show story input ──
   if (!sceneManifest) {
@@ -117,7 +86,7 @@ export default function WriterPage() {
               {generating ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Generating Scenes…
+                  Generating Scenes & Shots…
                 </>
               ) : (
                 <>
@@ -147,7 +116,7 @@ export default function WriterPage() {
     )
   }
 
-  // ── Scenes generated: show cards + editor + chat ──
+  // ── Scenes generated: full layout ──
   return (
     <>
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -205,265 +174,61 @@ export default function WriterPage() {
           )}
         </div>
 
-        {/* ── Scene Cards (horizontal) ── */}
-        <div className="border-b border-border px-6 py-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {sceneManifest.scenes.map((scene) => {
-              const isSelected = selectedSceneId === scene.sceneId
-              return (
-                <button
-                  key={scene.sceneId}
-                  type="button"
-                  onClick={() => selectScene(scene.sceneId)}
-                  className={cn(
-                    'rounded-lg border-2 p-3 text-left transition-all',
-                    ACT_COLORS[scene.act],
-                    isSelected
-                      ? 'border-primary ring-1 ring-primary/30'
-                      : 'hover:brightness-110',
-                  )}
-                >
-                  {/* Act label bar */}
-                  <div className="mb-2 flex items-center gap-2">
-                    <div
-                      className={cn(
-                        'h-1.5 w-1.5 rounded-full',
-                        ACT_ACCENT[scene.act],
-                      )}
-                    />
-                    <span className="text-[10px] font-bold tracking-wider text-muted-foreground">
-                      {ACT_LABELS[scene.act]}
-                    </span>
-                  </div>
+        {/* ── Scene Cards ── */}
+        <SceneCards
+          manifest={sceneManifest}
+          selectedSceneId={selectedSceneId}
+          onSelectScene={selectScene}
+        />
 
-                  {/* Scene name */}
-                  <p className="mb-2 line-clamp-2 text-sm font-medium leading-tight">
-                    {scene.narrativeSummary.split(' ').slice(0, 6).join(' ')}…
-                  </p>
-
-                  {/* Meta */}
-                  <div className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="size-3" />
-                      {getLocationName(scene.location)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="size-3" />
-                      {scene.timeOfDay}
-                    </span>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* ── Bottom: Editor (left) + Chat (right) ── */}
+        {/* ── Bottom: Shot Grid + Editor (left) + Chat (right) ── */}
         <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
-          {/* Scene Detail Editor */}
+          {/* Left panel: Shot Grid + Shot Editor */}
           <div className="flex flex-1 flex-col border-b border-border lg:border-b-0 lg:border-r">
-            <div className="border-b border-border px-6 py-3">
-              <span className="text-sm font-semibold">Scene Detail Editor</span>
-              {selectedScene && (
-                <span className="ml-2 text-xs text-muted-foreground">
-                  [{selectedScene.sceneId}]
-                </span>
+            {/* Shot Grid */}
+            <ShotGrid
+              shots={sceneShotsFiltered}
+              selectedShotId={selectedShotId}
+              manifest={sceneManifest}
+              onSelectShot={selectShot}
+            />
+
+            {/* Shot Detail Editor */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="border-b border-border px-6 py-2">
+                <span className="text-sm font-semibold">Shot Detail Editor</span>
+                {selectedShot && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    [{selectedShot.shotId}]
+                  </span>
+                )}
+              </div>
+
+              {selectedShot ? (
+                <ShotEditor
+                  shot={selectedShot}
+                  manifest={sceneManifest}
+                  onUpdateShot={updateShot}
+                  onAddDialogue={addDialogueLine}
+                  onRemoveDialogue={removeDialogueLine}
+                  onUpdateDialogue={updateDialogueLine}
+                />
+              ) : (
+                <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                  {sceneShotsFiltered.length > 0
+                    ? 'Select a shot above'
+                    : 'Generate scenes to create shots'}
+                </div>
               )}
             </div>
-
-            {selectedScene ? (
-              <ScrollArea className="flex-1 px-6 py-4">
-                <div className="space-y-4">
-                  {/* Location / Time of Day / Mood */}
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                        <MapPin className="size-3" />
-                        LOCATION
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-                        value={getLocationName(selectedScene.location)}
-                        onChange={(e) => {
-                          const loc = sceneManifest.locations.find(
-                            (l) => l.locationId === selectedScene.location,
-                          )
-                          if (loc) {
-                            useWriterStore.setState((state) => ({
-                              sceneManifest: state.sceneManifest
-                                ? {
-                                    ...state.sceneManifest,
-                                    locations:
-                                      state.sceneManifest.locations.map((l) =>
-                                        l.locationId === loc.locationId
-                                          ? { ...l, name: e.target.value }
-                                          : l,
-                                      ),
-                                  }
-                                : null,
-                            }))
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                        <Clock className="size-3" />
-                        TIME OF DAY
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-                        value={selectedScene.timeOfDay}
-                        onChange={(e) =>
-                          updateScene(selectedScene.sceneId, {
-                            timeOfDay: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                        <Swords className="size-3" />
-                        MOOD
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-                        value={selectedScene.mood}
-                        onChange={(e) =>
-                          updateScene(selectedScene.sceneId, {
-                            mood: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Narrative Summary */}
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      SCENE SUMMARY
-                    </label>
-                    <Textarea
-                      className="min-h-[60px] resize-y text-sm"
-                      value={selectedScene.narrativeSummary}
-                      onChange={(e) =>
-                        updateScene(selectedScene.sceneId, {
-                          narrativeSummary: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  {/* Original Text Quote */}
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      ORIGINAL TEXT QUOTE
-                    </label>
-                    <Textarea
-                      className="min-h-[60px] resize-y text-sm italic"
-                      value={selectedScene.originalTextQuote}
-                      onChange={(e) =>
-                        updateScene(selectedScene.sceneId, {
-                          originalTextQuote: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  {/* Characters present */}
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      CHARACTERS
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedScene.charactersPresent.map((charId) => {
-                        const char = sceneManifest.characters.find(
-                          (c) => c.characterId === charId,
-                        )
-                        return (
-                          <Badge key={charId} variant="secondary">
-                            {char?.name ?? charId}
-                          </Badge>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                Select a scene card above
-              </div>
-            )}
           </div>
 
-          {/* ── Chat Panel ── */}
-          <div className="flex w-full flex-col lg:w-80">
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-              <MessageSquare className="size-4 text-muted-foreground" />
-              <span className="text-sm font-semibold">AI Writer</span>
-            </div>
-
-            <ScrollArea className="flex-1 px-4 py-3">
-              <div className="space-y-3">
-                {chatMessages.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Ask the AI Writer to help refine your scenes, suggest
-                    improvements, or discuss story structure.
-                  </p>
-                )}
-                {chatMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      'rounded-lg px-3 py-2 text-sm',
-                      msg.role === 'user'
-                        ? 'ml-4 bg-primary/10 text-foreground'
-                        : 'mr-4 bg-muted text-foreground',
-                    )}
-                  >
-                    {msg.content}
-                  </div>
-                ))}
-                {chatLoading && (
-                  <div className="mr-4 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-                    <Loader2 className="size-3 animate-spin" />
-                    Thinking…
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-            </ScrollArea>
-
-            <div className="border-t border-border p-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-                  placeholder="Ask about your scenes…"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleChat()
-                    }
-                  }}
-                />
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  onClick={handleChat}
-                  disabled={chatLoading || !chatInput.trim()}
-                >
-                  <Send className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
+          {/* Right panel: AI Writer Chat */}
+          <WriterChat
+            messages={chatMessages}
+            loading={chatLoading}
+            onSend={sendChatMessage}
+          />
         </div>
       </div>
 

@@ -1,5 +1,12 @@
 import { create } from 'zustand'
-import type { Scene, SceneManifest, Character, Location } from '@/types'
+import type {
+  Scene,
+  SceneManifest,
+  Character,
+  Location,
+  Shot,
+  DialogueLine,
+} from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { useProjectStore } from '@/stores/project-store'
 
@@ -8,11 +15,29 @@ interface ChatMessage {
   content: string
 }
 
+const DEFAULT_CAMERA = {
+  horizontal: 0,
+  vertical: 0,
+  pan: 0,
+  tilt: 0,
+  roll: 0,
+  zoom: 0,
+}
+
+const DEFAULT_LIGHTING = {
+  position: 'front' as const,
+  brightness: 50,
+  colorTemp: 5000,
+}
+
 interface WriterState {
   storyText: string
   expandedStory: string | null
   sceneManifest: SceneManifest | null
   selectedSceneId: string | null
+  shots: Shot[]
+  selectedShotId: string | null
+  generatingShots: boolean
   generating: boolean
   chatMessages: ChatMessage[]
   chatLoading: boolean
@@ -23,6 +48,15 @@ interface WriterState {
   loadProject: () => Promise<void>
   selectScene: (id: string) => void
   updateScene: (id: string, changes: Partial<Scene>) => void
+  selectShot: (id: string) => void
+  updateShot: (id: string, changes: Partial<Shot>) => void
+  addDialogueLine: (shotId: string, line: DialogueLine) => void
+  removeDialogueLine: (shotId: string, index: number) => void
+  updateDialogueLine: (
+    shotId: string,
+    index: number,
+    changes: Partial<DialogueLine>,
+  ) => void
   sendChatMessage: (message: string) => Promise<void>
   clearError: () => void
 }
@@ -32,6 +66,9 @@ export const useWriterStore = create<WriterState>((set, get) => ({
   expandedStory: null,
   sceneManifest: null,
   selectedSceneId: null,
+  shots: [],
+  selectedShotId: null,
+  generatingShots: false,
   generating: false,
   chatMessages: [],
   chatLoading: false,
@@ -58,13 +95,18 @@ export const useWriterStore = create<WriterState>((set, get) => ({
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
 
-      const { manifest, expandedStory } = await res.json()
+      const { manifest, expandedStory, shots } = await res.json()
+      const firstSceneId = manifest.scenes[0]?.sceneId ?? null
+      const firstShot =
+        shots?.find((s: Shot) => s.sceneId === firstSceneId) ?? null
 
       set({
         generating: false,
         sceneManifest: manifest,
         expandedStory,
-        selectedSceneId: manifest.scenes[0]?.sceneId ?? null,
+        selectedSceneId: firstSceneId,
+        shots: shots ?? [],
+        selectedShotId: firstShot?.shotId ?? null,
       })
     } catch (err) {
       set({
@@ -75,7 +117,14 @@ export const useWriterStore = create<WriterState>((set, get) => ({
     }
   },
 
-  selectScene: (id) => set({ selectedSceneId: id }),
+  selectScene: (id) => {
+    const { shots } = get()
+    const firstShot = shots.find((s) => s.sceneId === id)
+    set({
+      selectedSceneId: id,
+      selectedShotId: firstShot?.shotId ?? null,
+    })
+  },
 
   updateScene: (id, changes) =>
     set((state) => {
@@ -90,8 +139,53 @@ export const useWriterStore = create<WriterState>((set, get) => ({
       }
     }),
 
+  selectShot: (id) => set({ selectedShotId: id }),
+
+  updateShot: (id, changes) =>
+    set((state) => ({
+      shots: state.shots.map((s) =>
+        s.shotId === id ? { ...s, ...changes } : s,
+      ),
+    })),
+
+  addDialogueLine: (shotId, line) =>
+    set((state) => ({
+      shots: state.shots.map((s) =>
+        s.shotId === shotId
+          ? { ...s, dialogueLines: [...s.dialogueLines, line] }
+          : s,
+      ),
+    })),
+
+  removeDialogueLine: (shotId, index) =>
+    set((state) => ({
+      shots: state.shots.map((s) =>
+        s.shotId === shotId
+          ? {
+              ...s,
+              dialogueLines: s.dialogueLines.filter((_, i) => i !== index),
+            }
+          : s,
+      ),
+    })),
+
+  updateDialogueLine: (shotId, index, changes) =>
+    set((state) => ({
+      shots: state.shots.map((s) =>
+        s.shotId === shotId
+          ? {
+              ...s,
+              dialogueLines: s.dialogueLines.map((dl, i) =>
+                i === index ? { ...dl, ...changes } : dl,
+              ),
+            }
+          : s,
+      ),
+    })),
+
   sendChatMessage: async (message) => {
-    const { chatMessages, sceneManifest } = get()
+    const { chatMessages, sceneManifest, shots, selectedShotId } = get()
+    const selectedShot = shots.find((s) => s.shotId === selectedShotId)
 
     set({
       chatMessages: [...chatMessages, { role: 'user', content: message }],
@@ -107,6 +201,7 @@ export const useWriterStore = create<WriterState>((set, get) => ({
           message,
           history: chatMessages,
           sceneContext: sceneManifest,
+          shotContext: selectedShot ?? null,
         }),
       })
 
@@ -145,6 +240,7 @@ export const useWriterStore = create<WriterState>((set, get) => ({
         { data: scenes },
         { data: characters },
         { data: locations },
+        { data: shotsData },
       ] = await Promise.all([
         supabase
           .from('projects')
@@ -164,6 +260,11 @@ export const useWriterStore = create<WriterState>((set, get) => ({
           .from('locations')
           .select('*')
           .eq('project_id', projectId),
+        supabase
+          .from('shots')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('sort_order'),
       ])
 
       // Always load story_text even if no scenes yet (P1 → P2 handoff)
@@ -204,11 +305,36 @@ export const useWriterStore = create<WriterState>((set, get) => ({
         })),
       }
 
+      const shots: Shot[] = (shotsData ?? []).map((s) => ({
+        shotId: s.shot_id,
+        sceneId: s.scene_id,
+        shotType: s.shot_type as Shot['shotType'],
+        actionDescription: s.action_description ?? '',
+        characters: s.characters ?? [],
+        durationSeconds: s.duration_seconds ?? 5,
+        generationMethod: (s.generation_method ?? 'T2V') as Shot['generationMethod'],
+        dialogueLines: (s.dialogue_lines as DialogueLine[]) ?? [],
+        camera: {
+          ...DEFAULT_CAMERA,
+          ...(s.camera_config as Partial<Shot['camera']> ?? {}),
+        },
+        lighting: {
+          ...DEFAULT_LIGHTING,
+          ...(s.lighting_config as Partial<Shot['lighting']> ?? {}),
+        },
+      }))
+
+      const firstSceneId = manifest.scenes[0]?.sceneId ?? null
+      const firstShot =
+        shots.find((s) => s.sceneId === firstSceneId) ?? null
+
       set({
         storyText: project?.story_text ?? '',
         expandedStory: project?.expanded_story ?? null,
         sceneManifest: manifest,
-        selectedSceneId: manifest.scenes[0]?.sceneId ?? null,
+        selectedSceneId: firstSceneId,
+        shots,
+        selectedShotId: firstShot?.shotId ?? null,
       })
     } catch (err) {
       console.error('[writer-store] loadProject failed:', err)

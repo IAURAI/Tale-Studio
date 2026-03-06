@@ -14,8 +14,9 @@ const WRITER_SYSTEM = `You are a professional screenwriter and story consultant 
 Your role:
 - Help users refine their scene structure (Ki-Seung-Jeon-Gyeol: Intro → Development → Turn → Conclusion)
 - Suggest improvements to scene descriptions, locations, mood, and pacing
+- Help refine individual shots: shot descriptions, dialogue, shot type choices, character presence
 - Answer questions about storytelling, character arcs, and visual narrative
-- When the user asks to modify a scene, respond with specific suggestions
+- When the user asks to modify a scene or shot, respond with specific suggestions
 
 Style:
 - Concise and practical (this is a production tool, not creative writing class)
@@ -23,7 +24,7 @@ Style:
 - Reference cinematic techniques when relevant
 - Korean/English bilingual — match the user's language
 
-You have access to the current scene manifest in the conversation context. Reference specific scenes by their act (intro/dev/turn/conclusion) when discussing changes.`
+You have access to the current scene manifest and optionally a selected shot in the conversation context. Reference specific scenes by their act (intro/dev/turn/conclusion) and shots by their ID when discussing changes.`
 
 interface ChatMessage {
   role: 'user' | 'model'
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { message, history, sceneContext } = await req.json()
+    const { message, history, sceneContext, shotContext } = await req.json()
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -48,9 +49,13 @@ export async function POST(req: Request) {
 
     const ai = new GoogleGenAI({ apiKey: getApiKey() })
 
-    const contextPrefix = sceneContext
-      ? `[Current Scene Manifest]\n${JSON.stringify(sceneContext, null, 2)}\n\n`
-      : ''
+    let contextPrefix = ''
+    if (sceneContext) {
+      contextPrefix += `[Current Scene Manifest]\n${JSON.stringify(sceneContext, null, 2)}\n\n`
+    }
+    if (shotContext) {
+      contextPrefix += `[Currently Selected Shot]\n${JSON.stringify(shotContext, null, 2)}\n\n`
+    }
 
     const contents = [
       ...(history ?? []).map((msg: ChatMessage) => ({

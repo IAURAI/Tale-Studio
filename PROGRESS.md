@@ -67,6 +67,15 @@
 - [x] artist-store → writer-store의 sceneManifest 수신 (loadData)
 - [x] project-store 기본 stage → writer로 조정
 
+### P2-4: 샷 레벨 편집 (2026-03-06)
+- [x] writer-store 확장 — shots[], selectedShotId, shot CRUD 액션 (selectShot, updateShot, dialogue 관리)
+- [x] generate-scenes API — L2 Lite Shot Composer 추가 (씬당 4~6 샷 자동 생성, DB persist)
+- [x] chat API — shotContext 추가 (선택된 샷 컨텍스트 포함)
+- [x] 컴포넌트 분리 — scene-cards.tsx, writer-chat.tsx, shot-grid.tsx, shot-editor.tsx
+- [x] page.tsx 리컴포즈 — 4개 컴포넌트 조합
+- [x] 스펙 업데이트 — ux_pages.md P2 섹션 V3.1
+- [x] `pnpm build` 통과
+
 ## Phase 4: P1 The Meeting Room (2026-03-06~)
 
 > 브랜치: `feature/producer-writer-artist`
@@ -167,4 +176,9 @@
 - [x] `getUser()` auth 헬퍼 + API 라우트 6개 auth guard 적용
 - [x] Root layout에서 Sidebar 분리 → studio layout으로 이동
 - [x] `project/init` — user 기반 workspace 자동 생성
-- [ ] Vercel 배포 환경에서 OAuth 콜백 동작 확인
+- [x] Vercel 배포 환경에서 OAuth 콜백 동작 확인
+- [x] Supabase Site URL + Redirect URLs에 `tale-ivory.vercel.app` 추가
+
+## Bugfix Log (2026-03-06)
+
+- [x] **P1→P2 handoff 시 story_text 안 보이는 버그** — writer-store `loadProject()`에서 씬이 없으면 early return하여 story_text도 안 읽음. 씬 없을 때도 story_text/expanded_story 로드하도록 수정 (`fec381e`)

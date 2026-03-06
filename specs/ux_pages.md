@@ -112,51 +112,46 @@ P1 "Hand over to Writer →"
 
 ## P2: The Script Room (Writer)
 
-> 상태: **MVP 포함** — V2 디자인 확정, 열린 질문 2개
+> 상태: **MVP 포함** — V3 레이아웃 확정 (씬+샷 편집)
 > 참고: `specs/reference_v2/image2.png`
 
 ### 목적
 
-스토리 → 씬 분할 (기승전결). AI Writer와 대화 + 씬 카드 직접 편집.
-"Zero Friction" — 대화가 즉시 구조화된 씬 카드로 변환.
+스토리 → 씬 분할 (기승전결) → 샷 시퀀스 생성. AI Writer와 대화 + 씬/샷 직접 편집.
+"Zero Friction" — 1회 호출로 씬+샷 자동 생성. 샷별 내러티브 데이터 직접 수정.
 
 ### 레이아웃
 
 ```
-┌──── 사이드바 ──┬────────────────────────────────────────────┐
-│ [P] Producer  │ The Script Room          [Auto-Generate    │
-│ [W] Writer ●  │ Organize your plot        Scenes]          │
-│ [C] Concept   │ (Ki-Seung-Jeon-Gyeol)                     │
-│ [D] Director  │                                            │
-│ [E] Editor    │ ┌──────────┐ ┌──────────┐ ┌────────┐ ┌──┐ │
-│               │ │INTRODUCTION│DEVELOPMENT│ │ TURN   │ │CO│ │
-│               │ │The Encounter│The Chase │ │Hideout │ │Re│ │
-│               │ │📍 Street  │📍 Market  │ │📍Bunker│ │📍│ │
-│               │ │🕐 Night   │🕐 Night   │ │🕐 Dawn │ │🕐│ │
-│               │ └──────────┘ └──────────┘ └────────┘ └──┘ │
-│               ├────────────────────────────────────────────┤
-│               │ SCENE DETAIL EDITOR    [Ask Concept Artist→│
-│               │                                            │
-│               │ The Encounter  [Scene ID: 1] ✏️            │
-│               │                                            │
-│               │ LOCATION          TIME OF DAY  KEY CONFLICT│
-│               │ [Cyberpunk Street] [Night(Rain)] [Proto...]│
-│               │                                            │
-│               │ SCENE DESCRIPTION & ACTION:                │
-│               │ ┌──────────────────────────────────────┐   │
-│               │ │ Rain falls heavily on the neon-lit...│   │
-│               │ └──────────────────────────────────────┘   │
-│               │                        Auto-Save Enabled   │
-└───────────────┴────────────────────────────────────────────┘
+┌─ Header: "The Script Room" + Auto-Save + Regenerate ──────────┐
+├─ Collapsible Story Input (기존) ──────────────────────────────┤
+├─ Scene Cards (4개, 가로 배열) ────────────────────────────────┤
+├─ Left (flex-1)────────────────────┬─ Right (w-80) ───────────┤
+│ Shot Grid (선택된 씬의 샷 카드들)  │ AI Writer Chat           │
+│ ┌────┬────┬────┬────┬────┐       │ (씬+샷 컨텍스트 포함)     │
+│ │ S1 │ S2 │ S3 │ S4 │ S5 │       │                          │
+│ └────┴────┴────┴────┴────┘       │                          │
+│ Shot Detail Editor (선택된 샷)     │                          │
+│ - 샷 설명 (textarea)              │                          │
+│ - 샷 타입 (select)                │                          │
+│ - 등장인물 (tag badges)            │                          │
+│ - 대사 (리스트, 추가/삭제/편집)      │                          │
+│ - 배경 (씬 location 참조, 읽기전용)  │                          │
+│ - 시간 (seconds input)            │                          │
+├───────────────────────────────────┴──────────────────────────┤
+│ Handoff: "Ask Concept Artist →"                               │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ### 요소
 
 | 요소 | 설명 |
 |------|------|
-| 씬 카드 (상단) | 기승전결 4개 카드 가로 배열. 씬명 + 로케이션 + 시간대. 활성 카드 강조(빨간 테두리) |
-| Auto-Generate Scenes | 우상단 버튼. P1 스토리 기반으로 4 씬 자동 분할 (L1 Pipeline) |
-| Scene Detail Editor (하단) | 선택된 씬의 상세 편집. Location, Time of Day, Key Conflict 인라인 필드 + Description 텍스트 영역 |
+| 씬 카드 (상단) | 기승전결 4개 카드 가로 배열. 씬명 + 로케이션 + 시간대. 활성 카드 강조. 씬 선택 시 Shot Grid 갱신 |
+| Auto-Generate Scenes | 우상단 Regenerate 버튼. P1 스토리 기반으로 4 씬 + 씬당 4~6 샷 자동 생성 (L1 + L2 Lite Pipeline) |
+| Shot Grid | 선택된 씬의 샷 카드 가로 스크롤. 샷 타입 + 설명 + 캐릭터 + 대사 프리뷰. 샷 선택 시 Shot Editor 갱신 |
+| Shot Detail Editor | 선택된 샷 상세 편집. Shot Type (select), Duration (number), Location (읽기전용), Description (textarea), Characters (badge), Dialogue Lines (추가/삭제/편집) |
+| AI Writer Chat (우측) | 씬 매니페스트 + 선택된 샷 컨텍스트 포함. 씬/샷 레벨 코칭 |
 | Auto-Save | 편집 내용 자동 저장 |
 | Handoff | "Ask Concept Artist →" 버튼 |
 
@@ -166,24 +161,47 @@ P1 "Hand over to Writer →"
 P1 출력 (story_text + settings)
     ↓ Pumpup (시각화 정보 확장)
     ↓ L1 Scene Architect (씬 분할 → 기승전결 4 Scene)
+    ↓ L2 Lite Shot Composer (씬당 4~6 샷, 내러티브 데이터만)
     ↓
-Scene Manifest + Character Sheet + Location Sheet
+Scene Manifest + Character Sheet + Location Sheet + Shot Sequences
+```
+
+### 컴포넌트 구조
+
+```
+writer/page.tsx (리컴포즈)
+├── features/writer/scene-cards.tsx    ← 씬 카드 그리드
+├── features/writer/shot-grid.tsx      ← 샷 카드 가로 스크롤
+├── features/writer/shot-editor.tsx    ← 샷 디테일 에디터 (대사 관리)
+└── features/writer/writer-chat.tsx    ← AI Writer 채팅
 ```
 
 ### 출력 → P3
 
 | 데이터 | 내용 |
 |--------|------|
-| scene_manifest | 씬 목록 (id, name, location, timeOfDay, keyConflict, description) |
-| character_sheet | 캐릭터 (id, name, role, description) |
-| location_sheet | 로케이션 (id, name, timeOfDay, mood, description) |
+| scene_manifest | 씬 목록 (id, name, location, timeOfDay, mood, description) |
+| character_sheet | 캐릭터 (id, name, role, description, fixedPrompt) |
+| location_sheet | 로케이션 (id, name, timeOfDay, lightingDirection, description) |
+| shot_sequences | 샷 목록 (id, sceneId, shotType, description, characters, dialogue, duration) — 내러티브만, 카메라/라이팅은 P4 |
+
+### L2 Lite 범위 (P2 vs P4)
+
+| 데이터 | P2 (L2 Lite) | P4 (Full L2+L3) |
+|--------|-------------|-----------------|
+| 샷 설명 | O | 수정 가능 |
+| 대사 | O | 수정 가능 |
+| 등장인물 | O | 수정 가능 |
+| 샷 타입 | O | 수정 가능 |
+| 카메라 (6축) | default `{0,0,0,0,0,0}` | Director가 설정 |
+| 라이팅 | default `{front, 50, 5000}` | Director가 설정 |
 
 ### 열린 질문
 
-| ID | 질문 |
-|----|------|
-| Q-P2-1 | AI 작가의 시스템 프롬프트/역할 정의 |
-| Q-P2-3 | 출연진 추출 자동/수동 여부 |
+| ID | 질문 | 상태 |
+|----|------|------|
+| Q-P2-1 | AI 작가의 시스템 프롬프트/역할 정의 | **닫힘** — 구현 완료 |
+| Q-P2-3 | 출연진 추출 자동/수동 여부 | **닫힘** — L1에서 자동 추출 |
 
 ---
 
@@ -467,8 +485,8 @@ MVP에서는 기본 편집(프리뷰/타임라인/Crop)만, AI 편집 도구는 
 P1 The Meeting Room
 │  story_text, project_settings
 ▼
-P2 The Script Room  ─── L1 Pipeline (Pumpup + Scene Architect)
-│  scene_manifest, character_sheet, location_sheet
+P2 The Script Room  ─── L1 Pipeline (Pumpup + Scene Architect) + L2 Lite (Shot Composer)
+│  scene_manifest, character_sheet, location_sheet, shot_sequences
 ▼
 P3 The Visual Studio  ─── 이미지 생성
 │  character_assets (Lock), world_assets
@@ -500,6 +518,7 @@ P5 Post-Production Suite  ─── 편집 + 렌더링
 
 | 날짜 | 내용 |
 |------|------|
+| 2026-03-06 | V3.1: P2 샷 레벨 편집 추가. L2 Lite Shot Composer 파이프라인. 컴포넌트 분리 (4파일). shot_sequences 출력 |
 | 2026-03-03 | V3: P1~P5 전체 MVP 포함. DataProvider Mock 참조 제거. Scope 내용 mvp_scope.md로 분리 |
 | 2026-03-03 | V2: 5 Stage 구조, 사이드바/Handoff/Samantha 패턴, P3 에셋 전용, P4 Storyboard 통합, P5 디자인 확정 |
 | 2026-02-25 | V1: 초안 (UX.pdf + overview.md + 스펙 인터뷰 통합) |
