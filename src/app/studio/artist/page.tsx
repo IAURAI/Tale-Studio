@@ -66,9 +66,9 @@ export default function VisualPage() {
 
   return (
     <>
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* ===== Left: Character Consistency ===== */}
-        <div className="flex w-1/2 flex-col border-r border-border">
+        <div className="flex w-full flex-col border-b border-border lg:w-1/2 lg:border-b-0 lg:border-r">
           <div className="border-b border-border px-6 py-4">
             <h2 className="text-lg font-semibold">Character Consistency</h2>
           </div>
@@ -174,10 +174,10 @@ export default function VisualPage() {
           </ScrollArea>
         </div>
 
-        <Separator orientation="vertical" />
+        <Separator orientation="vertical" className="hidden lg:block" />
 
         {/* ===== Right: World Model ===== */}
-        <div className="flex w-1/2 flex-col">
+        <div className="flex w-full flex-col lg:w-1/2">
           <div className="border-b border-border px-6 py-4">
             <h2 className="text-lg font-semibold">World Model</h2>
           </div>
@@ -225,7 +225,7 @@ export default function VisualPage() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <ImagePlaceholder
                         label="Wide Shot"
                         aspectRatio="video"

@@ -207,7 +207,7 @@ export default function WriterPage() {
 
         {/* ── Scene Cards (horizontal) ── */}
         <div className="border-b border-border px-6 py-4">
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {sceneManifest.scenes.map((scene) => {
               const isSelected = selectedSceneId === scene.sceneId
               return (
@@ -259,9 +259,9 @@ export default function WriterPage() {
         </div>
 
         {/* ── Bottom: Editor (left) + Chat (right) ── */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
           {/* Scene Detail Editor */}
-          <div className="flex flex-1 flex-col border-r border-border">
+          <div className="flex flex-1 flex-col border-b border-border lg:border-b-0 lg:border-r">
             <div className="border-b border-border px-6 py-3">
               <span className="text-sm font-semibold">Scene Detail Editor</span>
               {selectedScene && (
@@ -275,7 +275,7 @@ export default function WriterPage() {
               <ScrollArea className="flex-1 px-6 py-4">
                 <div className="space-y-4">
                   {/* Location / Time of Day / Mood */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div>
                       <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
                         <MapPin className="size-3" />
@@ -401,7 +401,7 @@ export default function WriterPage() {
           </div>
 
           {/* ── Chat Panel ── */}
-          <div className="flex w-80 flex-col">
+          <div className="flex w-full flex-col lg:w-80">
             <div className="flex items-center gap-2 border-b border-border px-4 py-3">
               <MessageSquare className="size-4 text-muted-foreground" />
               <span className="text-sm font-semibold">AI Writer</span>
