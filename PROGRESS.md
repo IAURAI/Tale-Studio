@@ -179,6 +179,11 @@
 - [x] Vercel 배포 환경에서 OAuth 콜백 동작 확인
 - [x] Supabase Site URL + Redirect URLs에 `tale-ivory.vercel.app` 추가
 
+## Backlog
+
+- [ ] **로그아웃 기능** — 로그아웃 버튼 + `POST /api/auth/logout` (`signOut()`) + 사이드바 또는 헤더에 배치
+- [ ] **세션 만료 처리** — idle timeout + 만료 시 `/login` 리다이렉트 + 사용자 알림
+
 ## Bugfix Log (2026-03-06)
 
 - [x] **P1→P2 handoff 시 story_text 안 보이는 버그** — writer-store `loadProject()`에서 씬이 없으면 early return하여 story_text도 안 읽음. 씬 없을 때도 story_text/expanded_story 로드하도록 수정 (`fec381e`)

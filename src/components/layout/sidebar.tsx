@@ -7,11 +7,11 @@ import {
   Palette,
   Clapperboard,
   Film,
-  Settings,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { STAGES } from '@/lib/constants'
+import { UserMenu } from '@/components/layout/user-menu'
 import type { StageId } from '@/types'
 
 const STAGE_ICONS: Record<StageId, React.ElementType> = {
@@ -57,14 +57,7 @@ export function Sidebar() {
         })}
       </div>
 
-      <Tooltip delayDuration={0}>
-        <TooltipTrigger asChild>
-          <button className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground">
-            <Settings className="h-5 w-5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">Settings</TooltipContent>
-      </Tooltip>
+      <UserMenu />
     </aside>
   )
 }

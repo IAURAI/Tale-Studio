@@ -13,6 +13,8 @@ interface ProjectState {
   startVideoGeneration: () => void
   canNavigateTo: (stage: StageId) => boolean
   initProject: () => Promise<void>
+  createNewProject: () => Promise<void>
+  resetProject: () => void
 }
 
 function getStageIndex(id: StageId): number {
@@ -53,5 +55,34 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       console.error('[project-store] initProject failed:', err)
       set({ initLoading: false })
     }
+  },
+
+  createNewProject: async () => {
+    set({ initLoading: true })
+    try {
+      const res = await fetch('/api/project/new', { method: 'POST' })
+      if (!res.ok) throw new Error('Failed to create project')
+      const { workspaceId, projectId } = await res.json()
+      set({
+        workspaceId,
+        projectId,
+        initLoading: false,
+        currentStage: 'producer',
+        videoGenerationStarted: false,
+      })
+    } catch (err) {
+      console.error('[project-store] createNewProject failed:', err)
+      set({ initLoading: false })
+    }
+  },
+
+  resetProject: () => {
+    set({
+      workspaceId: null,
+      projectId: null,
+      currentStage: 'producer',
+      videoGenerationStarted: false,
+      initLoading: false,
+    })
   },
 }))

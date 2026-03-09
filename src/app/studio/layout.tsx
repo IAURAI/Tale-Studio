@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useProjectStore } from '@/stores/project-store'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Samantha } from '@/components/layout/samantha'
+import { useIdleTimeout } from '@/hooks/use-idle-timeout'
 
 export default function StudioLayout({
   children,
@@ -11,6 +12,7 @@ export default function StudioLayout({
   children: React.ReactNode
 }) {
   const initProject = useProjectStore((s) => s.initProject)
+  useIdleTimeout()
 
   useEffect(() => {
     initProject()
