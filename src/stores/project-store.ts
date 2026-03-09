@@ -7,6 +7,7 @@ interface ProjectState {
   videoGenerationStarted: boolean
   workspaceId: string | null
   projectId: string | null
+  projectTitle: string
   initLoading: boolean
 
   setStage: (stage: StageId) => void
@@ -14,6 +15,7 @@ interface ProjectState {
   canNavigateTo: (stage: StageId) => boolean
   initProject: () => Promise<void>
   createNewProject: () => Promise<void>
+  switchProject: (id: string, title: string) => void
   resetProject: () => void
 }
 
@@ -26,6 +28,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   videoGenerationStarted: false,
   workspaceId: null,
   projectId: null,
+  projectTitle: 'Untitled',
   initLoading: false,
 
   setStage: (stage) => set({ currentStage: stage }),
@@ -48,6 +51,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({
         workspaceId,
         projectId,
+        projectTitle: project.title ?? 'Untitled',
         initLoading: false,
         currentStage: project.current_stage ?? 'producer',
       })
@@ -66,6 +70,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({
         workspaceId,
         projectId,
+        projectTitle: 'Untitled',
         initLoading: false,
         currentStage: 'producer',
         videoGenerationStarted: false,
@@ -76,10 +81,20 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
+  switchProject: (id, title) => {
+    set({
+      projectId: id,
+      projectTitle: title,
+      currentStage: 'producer',
+      videoGenerationStarted: false,
+    })
+  },
+
   resetProject: () => {
     set({
       workspaceId: null,
       projectId: null,
+      projectTitle: 'Untitled',
       currentStage: 'producer',
       videoGenerationStarted: false,
       initLoading: false,
