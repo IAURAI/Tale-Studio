@@ -9,9 +9,33 @@ import type {
   WorldAsset,
 } from '@/types'
 import { useWriterStore } from '@/stores/writer-store'
-import { useArtistStore } from '@/stores/artist-store'
+import { useArtistStore, type ImageProvider } from '@/stores/artist-store'
 import { useProjectStore } from '@/stores/project-store'
 import { createClient } from '@/lib/supabase/client'
+
+/* ── Fire-and-forget: upload shot reference image to Storage + DB ── */
+async function persistShotImage(
+  projectId: string,
+  shotId: string,
+  blobUrl: string,
+): Promise<void> {
+  try {
+    const r = await fetch(blobUrl)
+    const blob = await r.blob()
+    const form = new FormData()
+    form.append('projectId', projectId)
+    form.append('type', 'shot')
+    form.append('entityId', shotId)
+    form.append('field', 'reference_image')
+    form.append('file', blob, `${shotId}_reference.png`)
+    const res = await fetch('/api/assets/upload-image', { method: 'POST', body: form })
+    if (!res.ok) {
+      console.error(`[director-store] persistShotImage HTTP ${res.status} for ${shotId}`)
+    }
+  } catch (err) {
+    console.error(`[director-store] persistShotImage failed for ${shotId}:`, err)
+  }
+}
 
 /* ── Debounced shot persistence (camera/lighting → Supabase) ── */
 const pendingShotUpdates = new Map<string, NodeJS.Timeout>()
@@ -83,6 +107,8 @@ interface DirectorState {
 
   // Generation
   generatingVideoShotId: string | null
+  generatingImageShotIds: Set<string>
+  imageProvider: ImageProvider
   error: string | null
 
   loadData: () => void
@@ -95,6 +121,9 @@ interface DirectorState {
   applySuggestedCamera: (config: Partial<CameraConfig>) => void
   applySuggestedLighting: (config: Partial<LightingConfig>) => void
   generateVideo: (shotId: string) => Promise<void>
+  generateShotImage: (shotId: string) => Promise<void>
+  generateAllShotImages: () => Promise<void>
+  setImageProvider: (provider: ImageProvider) => void
 }
 
 const POLL_INTERVAL_MS = 5_000
@@ -111,6 +140,8 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
   chatMessages: [],
   chatLoading: false,
   generatingVideoShotId: null,
+  generatingImageShotIds: new Set<string>(),
+  imageProvider: 'gemini' as ImageProvider,
   error: null,
 
   loadData: async () => {
@@ -208,6 +239,7 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
             dialogueLines: s.dialogue_lines ?? [],
             camera: { ...DEFAULT_CAMERA, ...(s.camera_config ?? {}) },
             lighting: { ...DEFAULT_LIGHTING, ...(s.lighting_config ?? {}) },
+            referenceImageUrl: s.reference_image ?? null,
           }))
 
           const videoClips: VideoClip[] = shots.map((s) => ({
@@ -399,6 +431,93 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
     const { selectedShotId } = get()
     if (!selectedShotId) return
     get().updateLighting(selectedShotId, config)
+  },
+
+  setImageProvider: (provider) => set({ imageProvider: provider }),
+
+  generateShotImage: async (shotId: string) => {
+    const { shots, sceneManifest, worldAssets, characterAssets, imageProvider } = get()
+    const shot = shots.find((s) => s.shotId === shotId)
+    if (!shot) return
+
+    // Build a rich prompt from shot context
+    const scene = sceneManifest?.scenes.find((s) => s.sceneId === shot.sceneId)
+    const world = worldAssets.find(
+      (w) => w.locationId === scene?.location || w.sceneId === shot.sceneId,
+    )
+    const charNames = shot.characters
+      .map((id) => characterAssets.find((c) => c.characterId === id)?.name)
+      .filter(Boolean)
+
+    const parts = [
+      shot.actionDescription,
+      scene?.mood && `mood: ${scene.mood}`,
+      scene?.timeOfDay && `${scene.timeOfDay}`,
+      world?.name && `location: ${world.name}`,
+      charNames.length > 0 && `characters: ${charNames.join(', ')}`,
+      `${shot.shotType} shot`,
+      'cinematic, film still, high quality',
+    ].filter(Boolean)
+
+    const prompt = parts.join(', ')
+
+    set((state) => ({
+      generatingImageShotIds: new Set(state.generatingImageShotIds).add(shotId),
+      error: null,
+    }))
+
+    try {
+      const res = await fetch('/api/generate/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, aspectRatio: '16:9', provider: imageProvider }),
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+
+      set((state) => {
+        const next = new Set(state.generatingImageShotIds)
+        next.delete(shotId)
+        return {
+          generatingImageShotIds: next,
+          shots: state.shots.map((s) =>
+            s.shotId === shotId ? { ...s, referenceImageUrl: blobUrl } : s,
+          ),
+        }
+      })
+
+      // Fire-and-forget: persist to Storage + DB
+      const projectId = useProjectStore.getState().projectId
+      if (projectId) {
+        persistShotImage(projectId, shotId, blobUrl)
+      }
+    } catch (err) {
+      set((state) => {
+        const next = new Set(state.generatingImageShotIds)
+        next.delete(shotId)
+        return {
+          generatingImageShotIds: next,
+          error: err instanceof Error ? err.message : 'Image generation failed',
+        }
+      })
+    }
+  },
+
+  generateAllShotImages: async () => {
+    const { shots, selectedSceneId } = get()
+    const sceneShots = shots.filter(
+      (s) => s.sceneId === selectedSceneId && !s.referenceImageUrl,
+    )
+    // Generate sequentially to avoid rate limits
+    for (const shot of sceneShots) {
+      await get().generateShotImage(shot.shotId)
+    }
   },
 
   generateVideo: async (shotId: string) => {

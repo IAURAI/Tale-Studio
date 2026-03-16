@@ -39,6 +39,7 @@ export interface Shot {
   dialogueLines: DialogueLine[]
   camera: CameraConfig
   lighting: LightingConfig
+  referenceImageUrl?: string | null
 }
 
 export interface VideoClip {

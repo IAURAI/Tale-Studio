@@ -55,13 +55,19 @@ export async function POST(req: Request) {
     } = supabaseAdmin.storage.from('media').getPublicUrl(path)
 
     // 5. Update DB row
-    const table = type === 'character' ? 'characters' : 'locations'
-    const idColumn = type === 'character' ? 'character_id' : 'location_id'
-    await supabaseAdmin
-      .from(table)
-      .update({ [field]: publicUrl })
-      .eq('project_id', projectId)
-      .eq(idColumn, entityId)
+    const tableMap: Record<string, { table: string; idCol: string }> = {
+      character: { table: 'characters', idCol: 'character_id' },
+      location: { table: 'locations', idCol: 'location_id' },
+      shot: { table: 'shots', idCol: 'shot_id' },
+    }
+    const target = tableMap[type]
+    if (target) {
+      await supabaseAdmin
+        .from(target.table)
+        .update({ [field]: publicUrl })
+        .eq('project_id', projectId)
+        .eq(target.idCol, entityId)
+    }
 
     return NextResponse.json({ publicUrl })
   } catch (err) {

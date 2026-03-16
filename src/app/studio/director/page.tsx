@@ -1,12 +1,21 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { ImageIcon, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { HandoffButton } from '@/components/layout/handoff-button'
 import { CinematographicInspector } from '@/features/director/cinematographic-inspector'
 import { DirectorChat } from '@/features/director/director-chat'
 import { useDirectorStore } from '@/stores/director-store'
+import { type ImageProvider } from '@/stores/artist-store'
+import { cn } from '@/lib/utils'
 
 const ACT_COLORS: Record<string, string> = {
   intro: 'bg-act-intro',
@@ -25,17 +34,41 @@ export default function SetPage() {
     selectedSceneId,
     selectedShotId,
     generatingVideoShotId,
+    generatingImageShotIds,
+    imageProvider,
     selectScene,
     selectShot,
     updateCamera,
     updateLighting,
     generateVideo,
+    generateShotImage,
+    generateAllShotImages,
+    setImageProvider,
     loadData,
   } = useDirectorStore()
+
+  // Self-hosted health check
+  const [selfHostedStatus, setSelfHostedStatus] = useState<'checking' | 'online' | 'offline' | 'unconfigured'>('checking')
 
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  useEffect(() => {
+    let cancelled = false
+    const check = async () => {
+      try {
+        const res = await fetch('/api/generate/health')
+        const data = await res.json()
+        if (!cancelled) setSelfHostedStatus(data.status)
+      } catch {
+        if (!cancelled) setSelfHostedStatus('offline')
+      }
+    }
+    check()
+    const interval = setInterval(check, 30_000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
 
   const scenes = sceneManifest?.scenes ?? []
   const sceneShots = shots.filter((s) => s.sceneId === selectedSceneId)
@@ -122,19 +155,90 @@ export default function SetPage() {
 
         {/* Center: Shot Grid */}
         <div className="flex flex-1 flex-col p-4">
+          {/* Header: title + provider toggle + generate all */}
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-muted-foreground">
-              Shots
+              Shots <span className="font-normal">({sceneShots.length})</span>
             </h3>
-            <span className="text-xs text-muted-foreground">
-              {sceneShots.length} shots
-            </span>
+            <div className="flex items-center gap-2">
+              {/* Provider toggle */}
+              <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setImageProvider('gemini')}
+                  className={cn(
+                    'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
+                    imageProvider === 'gemini'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Gemini
+                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selfHostedStatus === 'online') setImageProvider('tailscale')
+                      }}
+                      className={cn(
+                        'flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
+                        imageProvider === 'tailscale'
+                          ? 'bg-primary text-primary-foreground'
+                          : selfHostedStatus === 'online'
+                            ? 'text-muted-foreground hover:text-foreground'
+                            : 'cursor-not-allowed text-muted-foreground/50',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          selfHostedStatus === 'online' && 'bg-green-500',
+                          selfHostedStatus === 'offline' && 'bg-red-500',
+                          selfHostedStatus === 'checking' && 'bg-yellow-500 animate-pulse',
+                          selfHostedStatus === 'unconfigured' && 'bg-gray-400',
+                        )}
+                      />
+                      Self-hosted
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {selfHostedStatus === 'online' && 'h100-image-gen connected'}
+                    {selfHostedStatus === 'offline' && 'Server offline'}
+                    {selfHostedStatus === 'checking' && 'Checking…'}
+                    {selfHostedStatus === 'unconfigured' && 'Not configured'}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                disabled={generatingImageShotIds.size > 0}
+                onClick={() => generateAllShotImages()}
+              >
+                {generatingImageShotIds.size > 0 ? (
+                  <>
+                    <Loader2 className="mr-1 size-3 animate-spin" />
+                    {generatingImageShotIds.size} generating…
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="mr-1 size-3" />
+                    Generate All
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3 overflow-y-auto">
             {sceneShots.map((shot) => {
-              const bgUrl = getSceneBg(shot.sceneId)
+              const imgUrl = shot.referenceImageUrl ?? getSceneBg(shot.sceneId)
               const charAvatars = getShotCharAvatars(shot.characters)
               const clip = videoClips.find((c) => c.shotId === shot.shotId)
+              const isGenImg = generatingImageShotIds.has(shot.shotId)
 
               return (
                 <button
@@ -169,23 +273,60 @@ export default function SetPage() {
                     </div>
                   )}
 
-                  {/* Shot thumbnail / background */}
-                  <div className="relative mb-2 flex aspect-video items-center justify-center overflow-hidden rounded-md bg-muted">
-                    {bgUrl ? (
+                  {/* Shot thumbnail */}
+                  <div className="group relative mb-2 flex aspect-video items-center justify-center overflow-hidden rounded-md bg-muted">
+                    {isGenImg ? (
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    ) : imgUrl ? (
                       <>
                         <img
-                          src={bgUrl}
-                          alt="scene bg"
+                          src={imgUrl}
+                          alt={shot.actionDescription}
                           className="h-full w-full object-cover"
                         />
                         <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
                           {shot.shotType}
                         </span>
+                        {/* Hover: regenerate */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            generateShotImage(shot.shotId)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.stopPropagation()
+                              generateShotImage(shot.shotId)
+                            }
+                          }}
+                        >
+                          <ImageIcon className="size-4 text-white" />
+                        </div>
                       </>
                     ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {shot.shotType}
-                      </span>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="flex flex-col items-center gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          generateShotImage(shot.shotId)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.stopPropagation()
+                            generateShotImage(shot.shotId)
+                          }
+                        }}
+                      >
+                        <ImageIcon className="size-4 text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground">
+                          {shot.shotType}
+                        </span>
+                      </div>
                     )}
 
                     {/* Video status indicator */}
