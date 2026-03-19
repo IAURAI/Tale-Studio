@@ -264,6 +264,37 @@
 - `#6 generate/image`는 Gemini Imagen (이미지 생성 모델)이므로 Agent SDK 전환 대상 아님
 - 프롬프트/시스템 인스트럭션은 각 라우트에 이미 정의되어 있으므로 Agent tool 정의로 매핑
 
+## Bugfix: 네비게이션 가드 + 플로우 안전장치 (2026-03-19)
+
+> 브랜치: `feature/producer-writer-artist`
+
+- [x] BUG-001: Sidebar `canNavigateTo()` 가드 — 미도달 탭 잠금
+- [x] BUG-002: Producer `saveAndHandoff` 실패 시 이동 차단
+- [x] BUG-003: Writer→Artist HandoffButton `disabled` 조건 (`shots.length === 0`)
+- [x] BUG-004: Artist→Director, Director→Editor HandoffButton `disabled` 조건
+- [x] BUG-005: Editor store `loadData()` — DB/upstream 로드 구현
+- [x] BUG-006: 프로젝트 전환 시 5개 하위 스토어 `reset()` 호출
+- [x] BUG-007: Director `useEffect` projectId 의존성 추가
+- [x] BUG-008: Studio layout URL 감지 → 잠긴 스테이지 리다이렉트
+- [x] BUG-009: Mock fallback 제거 → empty state 메시지 표시
+- [x] `pnpm build` 통과
+
+### 변경 파일
+- `src/components/layout/sidebar.tsx` — canNavigateTo 가드 + disabled 스타일
+- `src/components/layout/handoff-button.tsx` — current_stage DB 업데이트
+- `src/stores/project-store.ts` — canNavigateTo 로직 변경 + resetChildStores()
+- `src/stores/producer-store.ts` — saveAndHandoff → boolean + reset()
+- `src/stores/writer-store.ts` — reset()
+- `src/stores/artist-store.ts` — reset() + mock fallback 제거
+- `src/stores/director-store.ts` — reset() + mock fallback 제거
+- `src/stores/editor-store.ts` — loadData() DB/upstream 구현 + reset() + mock fallback 제거
+- `src/app/studio/layout.tsx` — URL 감지 리다이렉트
+- `src/app/studio/producer/page.tsx` — saveAndHandoff 결과 체크
+- `src/app/studio/writer/page.tsx` — HandoffButton disabled
+- `src/app/studio/artist/page.tsx` — HandoffButton disabled + empty state
+- `src/app/studio/director/page.tsx` — HandoffButton disabled + empty state + projectId dep
+- `src/app/studio/editor/page.tsx` — loadData() 사용 + empty state
+
 ## Backlog
 
 - [ ] Kling API 키 확보 + Vercel 환경변수 등록
