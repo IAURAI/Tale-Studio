@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { SceneManifest, Shot } from '@/types'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/supabase/auth'
-import { claudeChat, claudeJSON } from '@/lib/claude'
+import { llmChat, llmJSON } from '@/lib/llm'
 
 const PUMPUP_SYSTEM = `You are a visual story expander. Your job is to take a short story and add visual details that help cinematographers and video AI systems create stunning imagery.
 
@@ -72,7 +72,8 @@ Rules:
 - Role must be "protagonist", "antagonist", or "supporting"
 - Each scene ~30 seconds (total ~2 min video)
 - fixedPrompt: physical appearance only, no actions or emotions
-- Extract ALL characters mentioned, even briefly`
+- Extract ALL characters mentioned, even briefly
+- Output valid JSON only, no markdown fences`
 
 const SHOT_COMPOSER_SYSTEM = `You are a shot composer. Given a scene manifest and expanded story, generate 4-6 shots per scene.
 
@@ -109,7 +110,8 @@ Rules:
 - dialogueLines: include ONLY lines from the original story. Empty array if no dialogue in that shot
 - durationSeconds: 3-8 seconds per shot
 - Vary shot types for visual interest (wide establishing → medium → close-up for emotion)
-- characters: list character IDs present in this shot`
+- characters: list character IDs present in this shot
+- Output valid JSON array only, no markdown fences`
 
 export async function POST(req: Request) {
   try {
@@ -135,7 +137,7 @@ export async function POST(req: Request) {
     }
 
     // Step 1: Pumpup — expand story with visual details
-    const expandedStory = await claudeChat(PUMPUP_SYSTEM, [], storyText, 0.7)
+    const expandedStory = await llmChat(PUMPUP_SYSTEM, [], storyText, 0.7)
 
     if (!expandedStory) {
       return NextResponse.json(
@@ -145,7 +147,7 @@ export async function POST(req: Request) {
     }
 
     // Step 2: Scene Architect — split into 4 scenes
-    const manifest = await claudeJSON<SceneManifest>(
+    const manifest = await llmJSON<SceneManifest>(
       SCENE_ARCHITECT_SYSTEM,
       expandedStory,
       0.3,
@@ -167,13 +169,15 @@ export async function POST(req: Request) {
 
     let shots: Shot[] = []
     try {
-      const rawShots = await claudeJSON<Record<string, unknown>[]>(
+      const rawShots = await llmJSON<Record<string, unknown>[]>(
         SHOT_COMPOSER_SYSTEM,
         shotInput,
         0.4,
       )
 
-      const arr = Array.isArray(rawShots) ? rawShots : (rawShots as { shots?: unknown[] }).shots ?? []
+      const arr = Array.isArray(rawShots)
+        ? rawShots
+        : (rawShots as { shots?: unknown[] }).shots ?? []
 
       shots = arr.map((s) => {
         const r = s as Record<string, unknown>

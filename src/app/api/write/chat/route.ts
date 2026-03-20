@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getUser } from '@/lib/supabase/auth'
-import { claudeChat } from '@/lib/claude'
+import { llmChat } from '@/lib/llm'
 
 const WRITER_SYSTEM = `You are a professional screenwriter and story consultant working in an AI video production pipeline.
 
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       contextPrefix += `[Currently Selected Shot]\n${JSON.stringify(shotContext, null, 2)}\n\n`
     }
 
-    const text = await claudeChat(
+    const text = await llmChat(
       WRITER_SYSTEM,
       (history ?? []) as ChatMessage[],
       `${contextPrefix}${message}`,

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getUser } from '@/lib/supabase/auth'
 import { queryTechniques, loadCameraPresets } from '@/lib/knowledge'
 import { SHOTS_PER_SCENE, PROMPT_MAX_LENGTH } from '@/lib/constants'
-import { claudeJSON } from '@/lib/claude'
+import { llmJSON } from '@/lib/llm'
 
 const L2_SYSTEM = `You are a Shot Composer for an AI video production pipeline.
 
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
       }>
     }
 
-    const rawShots = await claudeJSON<RawShot[]>(
+    const rawShots = await llmJSON<RawShot[]>(
       L2_SYSTEM,
       `Generate shots for this scene:\n${sceneContext}`,
       0.6,
