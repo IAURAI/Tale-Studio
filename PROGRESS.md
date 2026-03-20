@@ -308,9 +308,15 @@
 - [x] Artist Provider UI (Gemini/Self-hosted 토글) 구현 완료 확인
 - [x] `pnpm build` 통과
 
+- [x] LLM 추상화 레이어 — `src/lib/llm.ts` (`llmChat` / `llmJSON<T>`) 도입, 5개 라우트 연결
+- [x] `src/lib/claude.ts` — 전환 준비 완료 상태로 유지 (미사용)
+- [x] Agent SDK 전환 시 `llm.ts` 상단 3줄만 교체로 전체 라우트 전환 가능
+
 **내가 결정한 것:**
 - trim을 video_clips 아닌 shots 테이블에 추가 (Kling 미설정으로 video_clips 레코드 없음)
 - reorder/trim 영속화는 fire-and-forget (UX 블로킹 방지)
+- Claude SDK 활성화 보류 — Vercel에 `ANTHROPIC_API_KEY` 미설정. 현재 Gemini(`GOOGLE_API_KEYS`) 사용
+- `llm.ts` 추상화: 나중에 Agent SDK(tool-use) 전환 시 진입점 단일화
 
 ## Backlog
 
