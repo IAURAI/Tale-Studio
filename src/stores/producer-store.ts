@@ -156,18 +156,6 @@ export const useProducerStore = create<ProducerState>((set, get) => ({
 
       if (error) throw error
 
-      // Auto-generate scenes before handing off to Writer
-      const res = await fetch('/api/write/generate-scenes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storyText, projectId }),
-      })
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error ?? 'Scene generation failed')
-      }
-
       useProjectStore.getState().setStage('writer')
       set({ syncing: false })
       return true

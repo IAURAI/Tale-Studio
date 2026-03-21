@@ -45,9 +45,19 @@ export default function WriterPage() {
   const projectId = useProjectStore((s) => s.projectId)
   const loadProject = useWriterStore((s) => s.loadProject)
 
+  const [autoGenTriggered, setAutoGenTriggered] = useState(false)
+
   useEffect(() => {
     if (projectId) loadProject()
   }, [projectId, loadProject])
+
+  // Auto-generate scenes if story exists but no scenes yet
+  useEffect(() => {
+    if (storyText && storyText.length >= 20 && !sceneManifest && !generating && !autoGenTriggered) {
+      setAutoGenTriggered(true)
+      generateScenes()
+    }
+  }, [storyText, sceneManifest, generating, autoGenTriggered, generateScenes])
 
   const [storyCollapsed, setStoryCollapsed] = useState(false)
 

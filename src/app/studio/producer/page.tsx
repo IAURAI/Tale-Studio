@@ -63,11 +63,11 @@ export default function MeetingPage() {
           {syncing ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Generating Scenes…
+              Saving…
             </>
           ) : hasMinSettings ? (
             <>
-              Ready! Generate Scenes & Hand over
+              Ready! Hand over to Script Room
               <ArrowRight className="ml-2 size-4" />
             </>
           ) : (
