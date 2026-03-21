@@ -53,7 +53,7 @@ export function ShotEditor({
   }
 
   return (
-    <ScrollArea className="flex-1 px-6 py-4">
+    <ScrollArea className="max-h-[60vh] flex-1 px-6 py-4">
       <div className="space-y-4">
         {/* Shot header */}
         <div className="flex items-center justify-between">
