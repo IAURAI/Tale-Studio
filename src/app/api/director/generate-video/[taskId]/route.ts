@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getUser } from '@/lib/supabase/auth'
-import { createKlingToken, KLING_API_BASE } from '@/lib/kling'
+import { fal } from '@fal-ai/client'
+
+fal.config({ credentials: () => process.env.FAL_KEY ?? '' })
+
+const FAL_MODEL = 'fal-ai/kling-video/v2.1/master/text-to-video'
 
 export async function GET(
   _req: Request,
@@ -13,39 +17,38 @@ export async function GET(
     }
 
     const { taskId } = await params
-    const token = createKlingToken()
 
-    const res = await fetch(
-      `${KLING_API_BASE}/videos/text2video/${taskId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    )
+    const status = await fal.queue.status(FAL_MODEL, {
+      requestId: taskId,
+      logs: false,
+    })
 
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}))
-      throw new Error(
-        errBody.message ?? errBody.error ?? `Kling polling error: ${res.status}`,
-      )
-    }
+    const queueStatus = status.status as string
 
-    const data = await res.json()
-    const taskStatus = data.data?.task_status
-    const videos = data.data?.task_result?.videos
-
-    if (taskStatus === 'succeed' && videos?.[0]?.url) {
-      return NextResponse.json({
-        status: 'completed',
-        url: videos[0].url,
+    if (queueStatus === 'COMPLETED') {
+      const result = await fal.queue.result(FAL_MODEL, {
+        requestId: taskId,
       })
-    }
 
-    if (taskStatus === 'failed') {
+      const videoUrl = (result.data as { video?: { url?: string } })?.video?.url
+
+      if (videoUrl) {
+        return NextResponse.json({ status: 'completed', url: videoUrl })
+      }
       return NextResponse.json({
         status: 'failed',
-        error: data.data?.task_status_msg || 'Video generation failed',
+        error: 'No video URL in result',
       })
     }
 
-    // Still processing
+    if (queueStatus === 'FAILED') {
+      return NextResponse.json({
+        status: 'failed',
+        error: 'Video generation failed',
+      })
+    }
+
+    // IN_QUEUE or IN_PROGRESS
     return NextResponse.json({ status: 'generating' })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error'
