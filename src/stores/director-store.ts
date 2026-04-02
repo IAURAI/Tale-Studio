@@ -109,6 +109,7 @@ interface DirectorState {
   generatingVideoShotId: string | null
   generatingImageShotIds: Set<string>
   imageProvider: ImageProvider
+  videoStorage: 'supabase' | 'local'
   error: string | null
 
   loadData: () => void
@@ -124,6 +125,7 @@ interface DirectorState {
   generateShotImage: (shotId: string) => Promise<void>
   generateAllShotImages: () => Promise<void>
   setImageProvider: (provider: ImageProvider) => void
+  setVideoStorage: (storage: 'supabase' | 'local') => void
   reset: () => void
 }
 
@@ -143,6 +145,7 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
   generatingVideoShotId: null,
   generatingImageShotIds: new Set<string>(),
   imageProvider: 'gemini' as ImageProvider,
+  videoStorage: 'supabase' as 'supabase' | 'local',
   error: null,
 
   loadData: async () => {
@@ -434,6 +437,7 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
   },
 
   setImageProvider: (provider) => set({ imageProvider: provider }),
+  setVideoStorage: (storage) => set({ videoStorage: storage }),
 
   reset: () =>
     set({
@@ -449,6 +453,7 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
       generatingVideoShotId: null,
       generatingImageShotIds: new Set<string>(),
       imageProvider: 'gemini' as ImageProvider,
+      videoStorage: 'supabase' as 'supabase' | 'local',
       error: null,
     }),
 
@@ -586,10 +591,38 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
         const pollData = await pollRes.json()
 
         if (pollData.status === 'completed') {
+          const falUrl = pollData.url
+
+          // Persist video to storage (Supabase or local)
+          const projectId = useProjectStore.getState().projectId
+          const { videoStorage } = get()
+          let savedUrl = falUrl
+
+          if (projectId) {
+            try {
+              const uploadRes = await fetch('/api/assets/upload-video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  videoUrl: falUrl,
+                  projectId,
+                  shotId,
+                  storage: videoStorage,
+                }),
+              })
+              if (uploadRes.ok) {
+                const { url } = await uploadRes.json()
+                savedUrl = url
+              }
+            } catch {
+              console.warn('[generateVideo] Failed to persist video, using FAL URL')
+            }
+          }
+
           set((state) => ({
             videoClips: state.videoClips.map((c) =>
               c.shotId === shotId
-                ? { ...c, status: 'completed', url: pollData.url }
+                ? { ...c, status: 'completed', url: savedUrl }
                 : c,
             ),
             generatingVideoShotId: null,
